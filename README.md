@@ -10,8 +10,8 @@ In vanilla, healing is always a detour: gold → shop → item → heal. Most mo
 
 This isn't a big overhaul. It's just a proof. A small, fairly balanced demo that makes gold useful in every run, at any stage.
 
-    Spend gold, gain health. 1 gold is 1 HP UI Game.
-    Turn on Turbo, and it will burn gold to heal 1% of your max HP when you're hurt.
-    Set a reserve, so you never go broke.
+Spend gold, gain health. 1 gold is 1 HP UI Game.
+Turn on Turbo, and it will burn gold to heal 1% of your max HP when you're hurt.
+Set a reserve, so you never go broke.
 
 No new items. No new perks. Just a different reason to pick up gold.
