@@ -1,0 +1,13 @@
+name: Build Mod
+on:
+  push:
+    tags: 'v*'
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cd src && zip -r ../WealthisHealth.zip WealthisHealth
+      - uses: softprops/action-gh-release@v1
+        with:
+          files: WealthisHealth.zip
