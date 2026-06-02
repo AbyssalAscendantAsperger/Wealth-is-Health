@@ -1,4 +1,4 @@
-Wealth is Health
+# Wealth is Health
 
 Noita never gave you a direct way to trade gold for health. Nobody built it. So I did.
 
