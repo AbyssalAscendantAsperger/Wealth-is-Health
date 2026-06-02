@@ -1,5 +1,5 @@
 # Wealth is Health
-
+!<!--citation:3-->
 Noita never gave you a direct way to trade gold for health. Nobody built it. So I did.
 
 Real modders usually make new perks, wands, or sprites. Connecting two systems that were never meant to touch — and then trying to balance them — is thankless work. That's probably why no one bothered.
