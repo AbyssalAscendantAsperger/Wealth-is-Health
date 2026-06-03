@@ -16,7 +16,6 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Zip mod folder
-        # Lệnh này vào thư mục src, nén thư mục WealthisHealth thành tệp WealthisHealth.zip ở thư mục gốc
         run: |
           cd src
           zip -r ../WealthisHealth.zip WealthisHealth
@@ -24,5 +23,5 @@ jobs:
       - name: GitHub Release and ZIP
         uses: softprops/action-gh-release@v2
         with:
-          files: WealthisHealth.zip # Đã sửa từ release.zip thành WealthisHealth.zip để khớp với bước trên
+          files: WealthisHealth.zip
           generate_release_notes: true
