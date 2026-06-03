@@ -1,7 +1,7 @@
 dofile_once("data/scripts/lib/mod_settings.lua")
 
 local mod_id = "gold_regen"
-mod_settings_version = 1
+mod_settings_version = 2
 
 mod_settings = {
     {

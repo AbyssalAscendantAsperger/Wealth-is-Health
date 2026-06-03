@@ -16,5 +16,5 @@ Set a reserve, so you never go broke.
 
 No new items. No new perks. Just a different reason to pick up gold.
 
-Update:I published this mod on Steam Workshop a while ago! Nếu you own the original game and want automatic updates (plus cloud saves for your settings, I believe), feel free to subscribe to it on the Steam Workshop!
+Update:I published this mod on Steam Workshop a while ago! If you own the original game and want automatic updates (plus cloud saves for your settings, I believe), feel free to subscribe to it on the Steam Workshop!
 link : https://steamcommunity.com/sharedfiles/filedetails/?id=3735995296
