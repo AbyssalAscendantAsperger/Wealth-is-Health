@@ -1,13 +1,28 @@
 name: Build Mod
+
 on:
   push:
-    tags: 'v*'
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - run: cd src && zip -r ../WealthisHealth.zip WealthisHealth
-      - uses: softprops/action-gh-release@v1
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Zip mod folder
+        # Lệnh này vào thư mục src, nén thư mục WealthisHealth thành tệp WealthisHealth.zip ở thư mục gốc
+        run: |
+          cd src
+          zip -r ../WealthisHealth.zip WealthisHealth
+
+      - name: GitHub Release and ZIP
+        uses: softprops/action-gh-release@v2
         with:
-          files: WealthisHealth.zip
+          files: WealthisHealth.zip # Đã sửa từ release.zip thành WealthisHealth.zip để khớp với bước trên
+          generate_release_notes: true
