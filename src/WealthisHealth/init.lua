@@ -9,10 +9,11 @@ local SETTING_KEY_STABLE_TICKS = MOD_ID .. ".stable_ticks"
 local HP_PER_HEAL = 0.04
 local FPS = 60
 local DAMAGE_GRACE_FRAMES = math.floor(1.0 * FPS + 0.5)
+local CURSE_RETRY_COOLDOWN = math.floor(5.0 * FPS + 0.5)
 
 local frame_counter = 0
 local player_entity = nil
-local healing_blocked_until_respawn = false
+local healing_cooldown_frames = 0
 local last_damage_frame = -9999
 local stable_hp_ticks = 0
 local previous_hp = nil
@@ -79,7 +80,7 @@ local function TryHeal(dmg_comp, target_hp)
     local expected_gain = target_hp - old_hp
     local actual_gain = new_hp - old_hp
     if actual_gain < expected_gain * 0.5 then
-        healing_blocked_until_respawn = true
+        healing_cooldown_frames = CURSE_RETRY_COOLDOWN
         return false
     end
     return true
@@ -144,7 +145,10 @@ local function IsPlayerStable(entity, current_hp)
 end
 
 local function DoRegenTick()
-    if healing_blocked_until_respawn then return end
+    if healing_cooldown_frames > 0 then
+        healing_cooldown_frames = healing_cooldown_frames - 1
+        return
+    end
     player_entity = GetPlayer()
     if not IsPlayerAlive(player_entity) then
         previous_hp = nil
@@ -182,7 +186,7 @@ end
 function OnPlayerSpawned(entity)
     player_entity = entity
     frame_counter = 0
-    healing_blocked_until_respawn = false
+    healing_cooldown_frames = 0
     last_damage_frame = -9999
     stable_hp_ticks = 0
     previous_hp = nil
