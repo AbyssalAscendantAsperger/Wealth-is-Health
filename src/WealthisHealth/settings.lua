@@ -36,6 +36,22 @@ mod_settings = {
         not_setting = true,
     },
     {
+        id = "stable_ticks",
+        ui_name = "Stable HP Ticks Required",
+        ui_description = "How many consecutive ticks without taking damage before healing is allowed. 0 = heal anytime. 2 = must be safe for 2 ticks first. Max 10.",
+        value_default = 2,
+        value_min = 0,
+        value_max = 10,
+        value_integer = true,
+        value_display_multiplier = 1,
+        value_display_formatting = " $0 tick(s)",
+        scope = MOD_SETTING_SCOPE_RUNTIME,
+    },
+    {
+        ui_fn = mod_setting_vertical_spacing,
+        not_setting = true,
+    },
+    {
         id = "enable_turbo",
         ui_name = "ENABLE SPEED GOVERNOR (TURBO MODE)",
         ui_description = "Fast heal: spend gold to restore 1% Max HP per tick when below 98% HP.",

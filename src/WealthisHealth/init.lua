@@ -2,14 +2,41 @@ dofile_once("data/scripts/lib/utilities.lua")
 
 local MOD_ID = "gold_regen"
 local SETTING_KEY_INTERVAL = MOD_ID .. ".interval"
-local SETTING_KEY_TURBO    = MOD_ID .. ".enable_turbo"
+local SETTING_KEY_TURBO = MOD_ID .. ".enable_turbo"
 local SETTING_KEY_MIN_GOLD = MOD_ID .. ".min_gold_threshold"
+local SETTING_KEY_STABLE_TICKS = MOD_ID .. ".stable_ticks"
 
 local HP_PER_HEAL = 0.04
 local FPS = 60
+local DAMAGE_GRACE_FRAMES = math.floor(1.0 * FPS + 0.5)
 
 local frame_counter = 0
 local player_entity = nil
+local healing_blocked_until_respawn = false
+local last_damage_frame = -9999
+local stable_hp_ticks = 0
+local previous_hp = nil
+
+local function GetValue(comp, field)
+    if ComponentGetValue2 then
+        return ComponentGetValue2(comp, field)
+    else
+        local val = ComponentGetValue(comp, field)
+        local num = tonumber(val)
+        if num then return num end
+        if val == "true" then return true end
+        if val == "false" then return false end
+        return val
+    end
+end
+
+local function SetValue(comp, field, value)
+    if ComponentSetValue2 then
+        ComponentSetValue2(comp, field, value)
+    else
+        ComponentSetValue(comp, field, tostring(value))
+    end
+end
 
 local function GetPlayer()
     local players = EntityGetWithTag("player_unit")
@@ -26,7 +53,7 @@ end
 local function GetCurrentGold(entity)
     local wallet = EntityGetFirstComponent(entity, "WalletComponent")
     if wallet then
-        return ComponentGetValue2(wallet, "money")
+        return GetValue(wallet, "money")
     end
     return 0
 end
@@ -34,36 +61,36 @@ end
 local function GetCurrentHP(entity)
     local dmg = EntityGetFirstComponent(entity, "DamageModelComponent")
     if dmg then
-        local hp     = ComponentGetValue2(dmg, "hp")
-        local max_hp = ComponentGetValue2(dmg, "max_hp")
+        local hp = GetValue(dmg, "hp")
+        local max_hp = GetValue(dmg, "max_hp")
         return hp, max_hp, dmg
     end
     return nil, nil, nil
 end
 
 local function SetHP(dmg_comp, new_hp)
-    if ComponentSetValue2 then
-        ComponentSetValue2(dmg_comp, "hp", new_hp)
-    else
-        ComponentSetValue(dmg_comp, "hp", tostring(new_hp))
+    SetValue(dmg_comp, "hp", new_hp)
+end
+
+local function TryHeal(dmg_comp, target_hp)
+    local old_hp = GetValue(dmg_comp, "hp")
+    SetHP(dmg_comp, target_hp)
+    local new_hp = GetValue(dmg_comp, "hp")
+    local expected_gain = target_hp - old_hp
+    local actual_gain = new_hp - old_hp
+    if actual_gain < expected_gain * 0.5 then
+        healing_blocked_until_respawn = true
+        return false
     end
+    return true
 end
 
 local function SpendGold(entity, amount)
     local wallet = EntityGetFirstComponent(entity, "WalletComponent")
     if not wallet then return false end
-
-    local current = ComponentGetValue2(wallet, "money")
+    local current = GetValue(wallet, "money")
     if current < amount then return false end
-
-    if ComponentSetValue2 then
-        ComponentSetValue2(wallet, "money", current - amount)
-    else
-        edit_component(entity, "WalletComponent", function(comp_id, vars)
-            vars.money = current - amount
-        end)
-    end
-
+    SetValue(wallet, "money", current - amount)
     return true
 end
 
@@ -81,66 +108,112 @@ local function GetMinGoldThreshold()
     return math.floor(min_gold)
 end
 
+local function GetStableTicksRequired()
+    local ticks = ModSettingGet(SETTING_KEY_STABLE_TICKS)
+    if type(ticks) ~= "number" then return 2 end
+    ticks = math.floor(ticks)
+    if ticks < 0 then return 0 end
+    if ticks > 10 then return 10 end
+    return ticks
+end
+
+local function IsPlayerStable(entity, current_hp)
+    local current_frame = GameGetFrameNum()
+    local stable_required = GetStableTicksRequired()
+    if stable_required == 0 then
+        previous_hp = current_hp
+        return true
+    end
+    if previous_hp ~= nil and current_hp < previous_hp - 0.001 then
+        last_damage_frame = current_frame
+        stable_hp_ticks = 0
+        previous_hp = current_hp
+        return false
+    end
+    previous_hp = current_hp
+    local frames_since_damage = current_frame - last_damage_frame
+    if frames_since_damage < DAMAGE_GRACE_FRAMES then
+        stable_hp_ticks = 0
+        return false
+    end
+    stable_hp_ticks = stable_hp_ticks + 1
+    if stable_hp_ticks < stable_required then
+        return false
+    end
+    return true
+end
+
 local function DoRegenTick()
+    if healing_blocked_until_respawn then return end
     player_entity = GetPlayer()
-    if not IsPlayerAlive(player_entity) then return end
-
-    local gold              = GetCurrentGold(player_entity)
+    if not IsPlayerAlive(player_entity) then
+        previous_hp = nil
+        stable_hp_ticks = 0
+        return
+    end
+    local gold = GetCurrentGold(player_entity)
     local hp, max_hp, dmg_comp = GetCurrentHP(player_entity)
-
     if not hp or not max_hp or not dmg_comp then return end
-
-    local min_gold         = GetMinGoldThreshold()
+    if not IsPlayerStable(player_entity, hp) then return end
+    local min_gold = GetMinGoldThreshold()
     local is_turbo_enabled = ModSettingGet(SETTING_KEY_TURBO)
-    local epsilon          = 0.001
-
+    local epsilon = 0.001
     if is_turbo_enabled then
-        local missing_hp    = max_hp - hp
+        local missing_hp = max_hp - hp
         local gap_threshold = max_hp * 0.02
-
         local turbo_heal_val = max_hp * 0.01
-        local turbo_cost     = math.max(1, math.floor((turbo_heal_val / HP_PER_HEAL) + 0.5))
-
-        if missing_hp > (gap_threshold + epsilon)
-           and gold >= min_gold
-           and gold >= turbo_cost then
-
+        local turbo_cost = math.max(1, math.floor((turbo_heal_val / HP_PER_HEAL) + 0.5))
+        if missing_hp > (gap_threshold + epsilon) and gold >= min_gold and gold >= turbo_cost then
             local spent = SpendGold(player_entity, turbo_cost)
             if spent then
-                SetHP(dmg_comp, math.min(hp + turbo_heal_val, max_hp))
-                return
+                TryHeal(dmg_comp, math.min(hp + turbo_heal_val, max_hp))
             end
+            return
         end
     end
-
     if gold < min_gold then return end
     if gold < 1 then return end
     if (max_hp - hp) < epsilon then return end
-
     local spent = SpendGold(player_entity, 1)
     if not spent then return end
-
-    SetHP(dmg_comp, math.min(hp + HP_PER_HEAL, max_hp))
+    TryHeal(dmg_comp, math.min(hp + HP_PER_HEAL, max_hp))
 end
 
 function OnPlayerSpawned(entity)
     player_entity = entity
     frame_counter = 0
+    healing_blocked_until_respawn = false
+    last_damage_frame = -9999
+    stable_hp_ticks = 0
+    previous_hp = nil
 end
 
 function OnWorldPostUpdate()
     if not IsPlayerAlive(player_entity) then
         player_entity = GetPlayer()
-        if not IsPlayerAlive(player_entity) then return end
+        if not IsPlayerAlive(player_entity) then
+            previous_hp = nil
+            stable_hp_ticks = 0
+            return
+        end
     end
-
+    if player_entity then
+        local _, _, dmg_comp = GetCurrentHP(player_entity)
+        if dmg_comp then
+            local current_hp = GetValue(dmg_comp, "hp")
+            local frame = GameGetFrameNum()
+            if previous_hp ~= nil and current_hp < previous_hp - 0.001 then
+                last_damage_frame = frame
+                stable_hp_ticks = 0
+            end
+            previous_hp = current_hp
+        end
+    end
     frame_counter = frame_counter + 1
     local interval = GetIntervalFrames()
-
     if frame_counter > interval then
         frame_counter = interval
     end
-
     if frame_counter >= interval then
         frame_counter = 0
         DoRegenTick()
